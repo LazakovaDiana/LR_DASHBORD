@@ -40,3 +40,59 @@ app.layout = html.Div(children=[
     # Индикаторы для отображения текущих значений показателей
     html.Div(id='current-indicators')
 ])
+
+# Обновление графиков и индикаторов на основе выбранного периода
+@app.callback(
+    [Output('time-series-graph', 'figure'),
+     Output('pie-chart', 'figure'),
+     Output('histogram', 'figure'),
+     Output('data-table', 'figure'),
+     Output('current-indicators', 'children')],
+    [Input('period-dropdown', 'value')]
+)
+def update_graphs(selected_period):
+    # Фильтрация данных в зависимости от выбранного периода
+    if selected_period == 'month':
+        filtered_df = df[df['date'].dt.month == pd.Timestamp.now().month]
+    elif selected_period == 'quarter':
+        filtered_df = df[df['date'].dt.quarter == pd.Timestamp.now().quarter]
+    else:
+        filtered_df = df[df['date'].dt.year == pd.Timestamp.now().year]
+
+    # График временного ряда
+    time_series_fig = px.line(filtered_df, x='date', y='visits', title='Посещения по времени')
+
+    # Круговая диаграмма
+    pie_fig = px.pie(filtered_df, names='category', values='visits', title='Структура посещений по категориям')
+
+    # Гистограмма
+    histogram_fig = px.histogram(filtered_df, x='visits', nbins=20, title='Гистограмма посещений')
+
+    # Таблица с данными (можно использовать Plotly Dash DataTable)
+    data_table_fig = {
+        'data': [{
+            'type': 'table',
+            'header': {
+                'values': ['Дата', 'Посещения', 'Категория'],
+                'fill': {'color': '#C2D4FF'},
+                'align': ['left'] * 3,
+            },
+            'cells': {
+                'values': [filtered_df['date'], filtered_df['visits'], filtered_df['category']],
+                'fill': {'color': '#F5F8FF'},
+                'align': ['left'] * 3,
+            }
+        }]
+    }
+
+    # Индикаторы текущих значений
+    current_visits = filtered_df['visits'].sum()
+    current_indicators = [
+        html.Div(f'Текущие посещения: {current_visits}', style={'fontSize': 20}),
+        html.Div(f'Количество уникальных категорий: {filtered_df["category"].nunique()}', style={'fontSize': 20}),
+    ]
+
+    return time_series_fig, pie_fig, histogram_fig, data_table_fig, current_indicators
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
